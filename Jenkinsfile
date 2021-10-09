@@ -46,7 +46,9 @@ pipeline {
                 echo 'Creating Infrastructure for the App on AWS Cloud'
                 sh "aws cloudformation create-stack --region ${AWS_REGION} --stack-name ${AWS_STACK_NAME} --capabilities CAPABILITY_IAM --template-body file://${CFN_TEMPLATE} --parameters ParameterKey=KeyPairName,ParameterValue=${CFN_KEYPAIR}"
                 script {
+                    
                     while(true) {
+                        
                         echo "Docker Grand Master is not UP and running yet. Will try to reach again after 10 seconds..."
                         sleep(10)
                         ip = sh(script:'aws ec2 describe-instances --region ${AWS_REGION} --filters Name=tag-value,Values=docker-grand-master Name=tag-value,Values=${AWS_STACK_NAME} --query Reservations[*].Instances[*].[PublicIpAddress] --output text | sed "s/\\s*None\\s*//g"', returnStdout:true).trim()
@@ -57,9 +59,11 @@ pipeline {
                         }
                     }
                 }
+                
             }
         }
         stage('Test the Infrastructure') {
+            
             steps {
                 echo "Testing if the Docker Swarm is ready or not, by checking Viz App on Grand Master with Public Ip Address: ${MASTER_INSTANCE_PUBLIC_IP}:8080"
                 script {
@@ -71,10 +75,11 @@ pipeline {
                         }
                         catch(Exception) {
                           echo 'Could not connect Viz App'
-                          sleep(5)  
+                          sleep(5)   
                         }
                     }
                 }
+                
             }
         }
         stage('Deploy App on Docker Swarm'){
@@ -82,12 +87,14 @@ pipeline {
                 MASTER_INSTANCE_ID=sh(script:'aws ec2 describe-instances --region ${AWS_REGION} --filters Name=tag-value,Values=docker-grand-master Name=tag-value,Values=${AWS_STACK_NAME} --query Reservations[*].Instances[*].[InstanceId] --output text', returnStdout:true).trim()
             }
             steps {
+            
                 echo "Cloning and Deploying App on Swarm using Grand Master with Instance Id: $MASTER_INSTANCE_ID"
                 sh 'mssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no --region ${AWS_REGION} ${MASTER_INSTANCE_ID} git clone ${GIT_URL}'
                 sleep(10)
                 sh 'mssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no --region ${AWS_REGION} ${MASTER_INSTANCE_ID} docker stack deploy --with-registry-auth -c ${HOME_FOLDER}/${GIT_FOLDER}/docker-compose.yml ${APP_NAME}'
             }
         }
+        
     }
     post {
         always {
